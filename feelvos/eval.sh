@@ -65,7 +65,8 @@ cd "${CURRENT_DIR}"
 
 # Set up the working directories.
 DAVIS_FOLDER="davis17"
-EXP_FOLDER="exp/eval_on_val_set"
+which_name="test-dev"
+EXP_FOLDER="exp/eval_on_${which_name}_set"
 VIS_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${DAVIS_FOLDER}/${EXP_FOLDER}/eval"
 mkdir -p ${VIS_LOGDIR}
 
@@ -73,6 +74,7 @@ DAVIS_DATASET="${WORK_DIR}/${DATASET_DIR}/${DAVIS_FOLDER}/tfrecord"
 
 python "${WORK_DIR}"/vis_video.py \
   --dataset=davis_2017 \
+  --vis_split="${which_name}" \
   --dataset_dir="${DAVIS_DATASET}" \
   --vis_logdir="${VIS_LOGDIR}" \
   --checkpoint_dir="${CHECKPOINT_DIR}" \

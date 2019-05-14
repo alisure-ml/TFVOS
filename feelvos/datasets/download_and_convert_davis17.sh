@@ -75,3 +75,21 @@ if [ ! -f "${OUTPUT_DIR}/train-00009-of-00010.tfrecord" ]; then
     --imageset=train \
     --output_dir="${OUTPUT_DIR}"
 fi
+
+# Convert test-dev set.
+if [ ! -f "${OUTPUT_DIR}/test-dev-00000-of-00001.tfrecord" ]; then
+  echo "Converting DAVIS 2017 dataset (test-dev)..."
+  python ./build_davis2017_data.py \
+    --data_folder="${DAVIS_ROOT}" \
+    --imageset=test-dev \
+    --output_dir="${OUTPUT_DIR}"
+fi
+
+# Convert test-challenge set.
+if [ ! -f "${OUTPUT_DIR}/test-challenge-00000-of-00001.tfrecord" ]; then
+  echo "Converting DAVIS 2017 dataset (train)..."
+  python ./build_davis2017_data.py \
+    --data_folder="${DAVIS_ROOT}" \
+    --imageset=test-challenge \
+    --output_dir="${OUTPUT_DIR}"
+fi

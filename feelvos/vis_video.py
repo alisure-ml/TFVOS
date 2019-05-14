@@ -34,9 +34,9 @@ slim = tf.contrib.slim
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-FLAGS.decoder_output_stride = [4]
-FLAGS.model_variant = "xception_65"
-FLAGS.multi_grid = [1, 1, 1]
+# FLAGS.decoder_output_stride = [4]
+# FLAGS.model_variant = "xception_65"
+# FLAGS.multi_grid = [1, 1, 1]
 
 flags.DEFINE_integer('eval_interval_secs', 60 * 5, 'How often (in seconds) to run evaluation.')
 
@@ -445,7 +445,17 @@ def main(unused_argv):
                 sv.start_queue_runners(sess)
                 sv.saver.restore(sess, last_checkpoint)
 
+                a_flag = True
                 for batch in range(num_batches):
+
+                    seq_name_val = sess.run(seq_name)
+                    seq_name_val = seq_name_val.decode('utf-8')
+                    print(seq_name_val)
+                    if seq_name_val == "slackline":
+                        a_flag = False
+                    if a_flag:
+                        continue
+
                     ops = [predicted_labels, gt_labels, seq_name]
                     if FLAGS.save_embeddings:
                         ops.append(all_embeddings)
@@ -453,6 +463,8 @@ def main(unused_argv):
                     res = sess.run(ops)
                     tf.logging.info('Forwarding done')
                     pred_labels_val, gt_labels_val, seq_name_val = res[:3]
+                    seq_name_val = seq_name_val.decode('utf-8')
+                    print(seq_name_val)
                     if FLAGS.save_embeddings:
                         all_embeddings_val = res[3]
                     else:

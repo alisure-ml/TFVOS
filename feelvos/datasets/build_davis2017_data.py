@@ -25,138 +25,135 @@ import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('data_folder', './davis17/DAVIS/',
-                           'Folder containing the DAVIS 2017 data')
-
-tf.app.flags.DEFINE_string('imageset', 'val',
-                           'Which subset to use, either train or val')
-
-tf.app.flags.DEFINE_string(
-    'output_dir', './davis17/tfrecord',
-    'Path to save converted TFRecords of TensorFlow examples.')
+tf.app.flags.DEFINE_string('data_folder', './davis17/DAVIS/', 'Folder containing the DAVIS 2017 data')
+tf.app.flags.DEFINE_string('year', '2017', '2017, 2019')
+tf.app.flags.DEFINE_string('imageset', 'val', 'train or val, test-dev, test-challenge')
+tf.app.flags.DEFINE_string('output_dir', './davis17/tfrecord', 'Path to save converted TFRecords.')
 
 _NUM_SHARDS_TRAIN = 10
-_NUM_SHARDS_VAL = 1
+_NUM_SHARDS_Other = 1
 
 
 def read_image(path):
-  with open(path, mode="rb") as fid:
-    image_str = fid.read()
-    image = PIL.Image.open(io.BytesIO(image_str))
-    w, h = image.size
-  return image_str, (h, w)
+    with open(path, mode="rb") as fid:
+        image_str = fid.read()
+        image = PIL.Image.open(io.BytesIO(image_str))
+        w, h = image.size
+    return image_str, (h, w)
 
 
 def read_annotation(path):
-  """Reads a single image annotation from a png image.
+    """Reads a single image annotation from a png image.
 
-  Args:
-    path: Path to the png image.
+    Args:
+      path: Path to the png image.
 
-  Returns:
-    png_string: The png encoded as string.
-    size: Tuple of (height, width).
-  """
-  with open(path, mode="rb") as fid:
-    x = np.array(PIL.Image.open(fid))
-    h, w = x.shape
-    im = PIL.Image.fromarray(x)
+    Returns:
+      png_string: The png encoded as string.
+      size: Tuple of (height, width).
+    """
+    with open(path, mode="rb") as fid:
+        x = np.array(PIL.Image.open(fid))
+        h, w = x.shape
+        im = PIL.Image.fromarray(x)
+        pass
 
-  output = io.BytesIO()
-  im.save(output, format='png')
-  png_string = output.getvalue()
-  output.close()
+    output = io.BytesIO()
+    im.save(output, format='png')
+    png_string = output.getvalue()
+    output.close()
 
-  return png_string, (h, w)
-
-
-def process_video(key, input_dir, anno_dir):
-  """Creates a SequenceExample for the video.
-
-  Args:
-    key: Name of the video.
-    input_dir: Directory which contains the image files.
-    anno_dir: Directory which contains the annotation files.
-
-  Returns:
-    The created SequenceExample.
-  """
-  frame_names = sorted(tf.gfile.ListDirectory(input_dir))
-  anno_files = sorted(tf.gfile.ListDirectory(anno_dir))
-  assert len(frame_names) == len(anno_files)
-
-  sequence = tf.train.SequenceExample()
-  context = sequence.context.feature
-  features = sequence.feature_lists.feature_list
-
-  for i, name in enumerate(frame_names):
-    image_str, image_shape = read_image(
-        os.path.join(input_dir, name))
-    anno_str, anno_shape = read_annotation(
-        os.path.join(anno_dir, name[:-4] + '.png'))
-    image_encoded = features['image/encoded'].feature.add()
-    image_encoded.bytes_list.value.append(image_str)
-    segmentation_encoded = features['segmentation/object/encoded'].feature.add()
-    segmentation_encoded.bytes_list.value.append(anno_str)
-
-    np.testing.assert_array_equal(np.array(image_shape), np.array(anno_shape))
-
-    if i == 0:
-      first_shape = np.array(image_shape)
-    else:
-      np.testing.assert_array_equal(np.array(image_shape), first_shape)
-
-  context['video_id'].bytes_list.value.append(key.encode('ascii'))
-  context['clip/frames'].int64_list.value.append(len(frame_names))
-  context['image/format'].bytes_list.value.append('JPEG'.encode('ascii'))
-  context['image/channels'].int64_list.value.append(3)
-  context['image/height'].int64_list.value.append(first_shape[0])
-  context['image/width'].int64_list.value.append(first_shape[1])
-  context['segmentation/object/format'].bytes_list.value.append('PNG'.encode('ascii'))
-  context['segmentation/object/height'].int64_list.value.append(first_shape[0])
-  context['segmentation/object/width'].int64_list.value.append(first_shape[1])
-
-  return sequence
+    return png_string, (h, w)
 
 
-def convert(data_folder, imageset, output_dir, num_shards):
-  """Converts the specified subset of DAVIS 2017 to TFRecord format.
+def process_video(key, input_dir, anno_dir, imageset):
+    """Creates a SequenceExample for the video.
 
-  Args:
-    data_folder: The path to the DAVIS 2017 data.
-    imageset: The subset to use, either train or val.
-    output_dir: Where to store the TFRecords.
-    num_shards: The number of shards used for storing the data.
-  """
-  sets_file = os.path.join(data_folder, 'ImageSets', '2017', imageset + '.txt')
-  vids = [x.strip() for x in open(sets_file).readlines()]
-  num_vids = len(vids)
-  num_vids_per_shard = int(math.ceil(num_vids) / float(num_shards))
-  for shard_id in range(num_shards):
-    output_filename = os.path.join(
-        output_dir,
-        '%s-%05d-of-%05d.tfrecord' % (imageset, shard_id, num_shards))
-    with tf.python_io.TFRecordWriter(output_filename) as tfrecord_writer:
-      start_idx = shard_id * num_vids_per_shard
-      end_idx = min((shard_id + 1) * num_vids_per_shard, num_vids)
-      for i in range(start_idx, end_idx):
-        print('Converting video %d/%d shard %d video %s' % (
-            i + 1, num_vids, shard_id, vids[i]))
-        img_dir = os.path.join(data_folder, 'JPEGImages', '480p', vids[i])
-        anno_dir = os.path.join(data_folder, 'Annotations', '480p', vids[i])
-        example = process_video(vids[i], img_dir, anno_dir)
-        tfrecord_writer.write(example.SerializeToString())
+    Args:
+      key: Name of the video.
+      input_dir: Directory which contains the image files.
+      anno_dir: Directory which contains the annotation files.
+
+    Returns:
+      The created SequenceExample.
+    """
+    frame_names = sorted(tf.gfile.ListDirectory(input_dir))
+    anno_files = sorted(tf.gfile.ListDirectory(anno_dir))
+    anno_files = [anno_files[0] for _ in range(len(frame_names))]
+    assert len(frame_names) == len(anno_files)
+
+    sequence = tf.train.SequenceExample()
+    context = sequence.context.feature
+    features = sequence.feature_lists.feature_list
+
+    for i, name in enumerate(frame_names):
+        image_str, image_shape = read_image(
+            os.path.join(input_dir, name))
+        if imageset == "train" or imageset == "val":
+            anno_str, anno_shape = read_annotation(os.path.join(anno_dir, name[:-4] + '.png'))
+        else:
+            anno_str, anno_shape = read_annotation(os.path.join(anno_dir, '00000.png'))
+        image_encoded = features['image/encoded'].feature.add()
+        image_encoded.bytes_list.value.append(image_str)
+        segmentation_encoded = features['segmentation/object/encoded'].feature.add()
+        segmentation_encoded.bytes_list.value.append(anno_str)
+
+        np.testing.assert_array_equal(np.array(image_shape), np.array(anno_shape))
+
+        if i == 0:
+            first_shape = np.array(image_shape)
+        else:
+            np.testing.assert_array_equal(np.array(image_shape), first_shape)
+
+    context['video_id'].bytes_list.value.append(key.encode('ascii'))
+    context['clip/frames'].int64_list.value.append(len(frame_names))
+    context['image/format'].bytes_list.value.append('JPEG'.encode('ascii'))
+    context['image/channels'].int64_list.value.append(3)
+    context['image/height'].int64_list.value.append(first_shape[0])
+    context['image/width'].int64_list.value.append(first_shape[1])
+    context['segmentation/object/format'].bytes_list.value.append('PNG'.encode('ascii'))
+    context['segmentation/object/height'].int64_list.value.append(first_shape[0])
+    context['segmentation/object/width'].int64_list.value.append(first_shape[1])
+
+    return sequence
+
+
+def convert(data_folder, year, imageset, output_dir, num_shards):
+    """Converts the specified subset of DAVIS 2017 to TFRecord format.
+
+    Args:
+      data_folder: The path to the DAVIS 2017 data.
+      imageset: The subset to use, either train or val.
+      output_dir: Where to store the TFRecords.
+      num_shards: The number of shards used for storing the data.
+    """
+    sets_file = os.path.join(data_folder, 'ImageSets', year, imageset + '.txt')
+    vids = [x.strip() for x in open(sets_file).readlines()]
+    num_vids = len(vids)
+    num_vids_per_shard = int(math.ceil(num_vids) / float(num_shards))
+    for shard_id in range(num_shards):
+        output_filename = os.path.join(output_dir, '%s-%05d-of-%05d.tfrecord' % (imageset, shard_id, num_shards))
+        with tf.python_io.TFRecordWriter(output_filename) as tfrecord_writer:
+            start_idx = shard_id * num_vids_per_shard
+            end_idx = min((shard_id + 1) * num_vids_per_shard, num_vids)
+            for i in range(start_idx, end_idx):
+                print('Converting video %d/%d shard %d video %s' % (i + 1, num_vids, shard_id, vids[i]))
+                img_dir = os.path.join(data_folder, 'JPEGImages', '480p', vids[i])
+                anno_dir = os.path.join(data_folder, 'Annotations', '480p', vids[i])
+                example = process_video(vids[i], img_dir, anno_dir, imageset)
+                tfrecord_writer.write(example.SerializeToString())
+            pass
+        pass
+    pass
 
 
 def main(unused_argv):
-  imageset = FLAGS.imageset
-  assert imageset in ('train', 'val')
-  if imageset == 'train':
-    num_shards = _NUM_SHARDS_TRAIN
-  else:
-    num_shards = _NUM_SHARDS_VAL
-  convert(FLAGS.data_folder, FLAGS.imageset, FLAGS.output_dir, num_shards)
+    imageset = FLAGS.imageset
+    assert imageset in ('train', 'val', 'test-dev', 'test-challenge')
+    num_shards = _NUM_SHARDS_TRAIN if imageset == 'train' else _NUM_SHARDS_Other
+    convert(FLAGS.data_folder, FLAGS.year, FLAGS.imageset, FLAGS.output_dir, num_shards)
+    pass
 
 
 if __name__ == '__main__':
-  tf.app.run()
+    tf.app.run()
