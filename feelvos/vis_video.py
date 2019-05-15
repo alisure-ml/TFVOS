@@ -446,15 +446,18 @@ def main(unused_argv):
                 sv.saver.restore(sess, last_checkpoint)
 
                 a_flag = True
+                seq_name_val = None
                 for batch in range(num_batches):
-
-                    seq_name_val = sess.run(seq_name)
-                    seq_name_val = seq_name_val.decode('utf-8')
-                    print(seq_name_val)
-                    if seq_name_val == "slackline":
+                    if seq_name_val != "chamaleon":
+                        if a_flag:
+                            seq_name_val = sess.run(seq_name)
+                            seq_name_val = seq_name_val.decode('utf-8')
+                            print(seq_name_val)
+                            continue
+                    else:
                         a_flag = False
-                    if a_flag:
                         continue
+                        pass
 
                     ops = [predicted_labels, gt_labels, seq_name]
                     if FLAGS.save_embeddings:

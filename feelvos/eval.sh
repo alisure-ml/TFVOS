@@ -48,15 +48,15 @@ sh download_and_convert_davis17.sh
 # Go to models folder and download and unpack the DAVIS 2017 trained model.
 MODELS_DIR="models"
 
-# MODELS_NAME="feelvos_davis17_and_youtubevos_trained"
-MODELS_NAME="feelvos_davis17_trained"
+MODELS_NAME="feelvos_davis17_and_youtubevos_trained"
+# MODELS_NAME="feelvos_davis17_trained"
 
 mkdir -p "${WORK_DIR}/${MODELS_DIR}"
 cd "${WORK_DIR}/${MODELS_DIR}"
 if [ ! -d ${MODELS_NAME} ]; then
   wget http://download.tensorflow.org/models/${MODELS_NAME}.tar.gz
   tar -xvf ${MODELS_NAME}.tar.gz
-  echo "model_checkpoint_path: \"model.ckpt-200004\"" > ${MODELS_NAME}/checkpoint
+  echo "model_checkpoint_path: \"model.ckpt-200006\"" > ${MODELS_NAME}/checkpoint
 fi
 CHECKPOINT_DIR="${WORK_DIR}/${MODELS_DIR}/${MODELS_NAME}/"
 
@@ -66,7 +66,7 @@ cd "${CURRENT_DIR}"
 # Set up the working directories.
 DAVIS_FOLDER="davis17"
 which_name="test-dev"
-EXP_FOLDER="exp/eval_on_${which_name}_set"
+EXP_FOLDER="exp/eval_on_${which_name}_set2"
 VIS_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${DAVIS_FOLDER}/${EXP_FOLDER}/eval"
 mkdir -p ${VIS_LOGDIR}
 
